@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Speed Calc">
+<meta name="theme-color" content="#0f172a">
+<title>Speed Calculator</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%230f172a'/%3E%3Ctext x='50' y='65' font-size='50' text-anchor='middle' fill='%23f8fafc' font-family='system-ui'%3E⚡%3C/text%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='%230f172a'/%3E%3Ctext x='90' y='125' font-size='80' text-anchor='middle' fill='%23f8fafc' font-family='system-ui'%3E⚡%3C/text%3E%3C/svg%3E">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  h1 {
+    font-size: 1.4rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #94a3b8;
+    text-align: center;
+  }
+  .distance-label {
+    font-size: 0.95rem;
+    color: #64748b;
+    margin-bottom: 36px;
+  }
+  .mic-btn {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    border: 3px solid #334155;
+    background: #1e293b;
+    color: #94a3b8;
+    font-size: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .mic-btn.listening {
+    border-color: #ef4444;
+    background: #1c1917;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  .mic-btn:active { transform: scale(0.95); }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+    50% { box-shadow: 0 0 0 20px rgba(239,68,68,0); }
+  }
+  .transcript {
+    margin-top: 32px;
+    font-size: 1.1rem;
+    color: #64748b;
+    min-height: 1.4em;
+    text-align: center;
+  }
+  .result {
+    margin-top: 16px;
+    font-size: 3rem;
+    font-weight: 700;
+    color: #f8fafc;
+    min-height: 1.2em;
+    text-align: center;
+  }
+  .result-unit {
+    font-size: 1.1rem;
+    color: #64748b;
+    margin-top: 4px;
+  }
+  .history {
+    margin-top: 40px;
+    width: 100%;
+    max-width: 320px;
+  }
+  .history h2 {
+    font-size: 0.85rem;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+  }
+  .history-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid #1e293b;
+    font-size: 0.95rem;
+  }
+  .history-item .time { color: #64748b; }
+  .history-item .speed { color: #e2e8f0; font-weight: 600; }
+  .error { color: #f87171; font-size: 0.95rem; margin-top: 16px; text-align: center; }
+  .manual-input {
+    margin-top: 20px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .manual-input input {
+    width: 100px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid #334155;
+    background: #1e293b;
+    color: #e2e8f0;
+    font-size: 1rem;
+    text-align: center;
+  }
+  .manual-input button {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid #334155;
+    background: #334155;
+    color: #e2e8f0;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<h1>10m Speed</h1>
+<div class="distance-label">distance = 10 meters</div>
+
+<button class="mic-btn" id="micBtn" aria-label="Start listening">🎤</button>
+
+<div class="transcript" id="transcript"></div>
+<div class="result" id="result"></div>
+<div class="result-unit" id="resultUnit"></div>
+<div class="error" id="error"></div>
+
+<div class="manual-input">
+  <input type="number" id="manualSeconds" placeholder="seconds" step="0.01" min="0" inputmode="decimal">
+  <button id="manualBtn">Calc</button>
+</div>
+
+<div class="history" id="historySection" style="display:none;">
+  <h2>Recent</h2>
+  <div id="historyList"></div>
+</div>
+
+<script>
+const DISTANCE = 10;
+const micBtn = document.getElementById('micBtn');
+const transcriptEl = document.getElementById('transcript');
+const resultEl = document.getElementById('result');
+const resultUnitEl = document.getElementById('resultUnit');
+const errorEl = document.getElementById('error');
+const historySection = document.getElementById('historySection');
+const historyList = document.getElementById('historyList');
+const manualSeconds = document.getElementById('manualSeconds');
+const manualBtn = document.getElementById('manualBtn');
+
+let history = [];
+let recognition = null;
+let listening = false;
+
+function parseDuration(text) {
+  text = text.toLowerCase().trim()
+    .replace(/point/g, '.')
+    .replace(/comma/g, '.')
+    .replace(/and/g, ' ');
+
+  // Map spoken number words to digits
+  const wordNums = {
+    zero:0,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,
+    ten:10,eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,sixteen:16,
+    seventeen:17,eighteen:18,nineteen:19,twenty:20,thirty:30,forty:40,fifty:50,sixty:60
+  };
+  for (const [w, n] of Object.entries(wordNums)) {
+    text = text.replace(new RegExp('\\b' + w + '\\b', 'g'), String(n));
+  }
+
+  // Try "X minutes Y seconds" pattern
+  const minSec = text.match(/([\d.]+)\s*(?:min(?:ute)?s?)\s*([\d.]*)\s*(?:sec(?:ond)?s?)?/);
+  if (minSec) {
+    return parseFloat(minSec[1]) * 60 + (parseFloat(minSec[2]) || 0);
+  }
+
+  // Try "X seconds" or just a number
+  const secMatch = text.match(/([\d.]+)\s*(?:sec(?:ond)?s?)?/);
+  if (secMatch) {
+    return parseFloat(secMatch[1]);
+  }
+
+  return null;
+}
+
+function calculate(seconds) {
+  errorEl.textContent = '';
+  if (!seconds || seconds <= 0 || isNaN(seconds)) {
+    errorEl.textContent = 'Could not parse a valid duration.';
+    return;
+  }
+  const speed = DISTANCE / seconds;
+  resultEl.textContent = speed.toFixed(2);
+  resultUnitEl.textContent = 'm/s';
+
+  history.unshift({ seconds: seconds.toFixed(2), speed: speed.toFixed(2) });
+  if (history.length > 10) history.pop();
+  renderHistory();
+}
+
+function renderHistory() {
+  if (history.length === 0) { historySection.style.display = 'none'; return; }
+  historySection.style.display = '';
+  historyList.innerHTML = history.map(h =>
+    `<div class="history-item"><span class="time">${h.seconds}s</span><span class="speed">${h.speed} m/s</span></div>`
+  ).join('');
+}
+
+// Speech recognition setup
+if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SR();
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.lang = 'en-US';
+
+  recognition.onresult = (e) => {
+    const text = e.results[0][0].transcript;
+    transcriptEl.textContent = `"${text}"`;
+    const secs = parseDuration(text);
+    if (secs !== null) {
+      calculate(secs);
+    } else {
+      errorEl.textContent = `Could not parse duration from: "${text}"`;
+    }
+  };
+
+  recognition.onerror = (e) => {
+    errorEl.textContent = 'Mic error: ' + e.error;
+    stopListening();
+  };
+
+  recognition.onend = () => { stopListening(); };
+} else {
+  micBtn.style.display = 'none';
+  errorEl.textContent = 'Speech recognition not supported in this browser.';
+}
+
+function startListening() {
+  listening = true;
+  micBtn.classList.add('listening');
+  transcriptEl.textContent = 'Listening...';
+  resultEl.textContent = '';
+  resultUnitEl.textContent = '';
+  errorEl.textContent = '';
+  recognition.start();
+}
+
+function stopListening() {
+  listening = false;
+  micBtn.classList.remove('listening');
+  try { recognition.stop(); } catch(_) {}
+}
+
+micBtn.addEventListener('click', () => {
+  if (listening) { stopListening(); } else { startListening(); }
+});
+
+manualBtn.addEventListener('click', () => {
+  const val = parseFloat(manualSeconds.value);
+  transcriptEl.textContent = `Manual: ${val}s`;
+  calculate(val);
+  manualSeconds.value = '';
+});
+
+manualSeconds.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') manualBtn.click();
+});
+</script>
+</body>
+</html>
